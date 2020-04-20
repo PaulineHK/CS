@@ -40,71 +40,77 @@ int main() {
 	int sizeMsg = 0;
 	bool end = false;
 	int i = 0;
-	cout << "connected!\n";
+
 	do {
+		ZeroMemory(message, sizeof(message));
 		sizeMsg = recv(SocketK, message, sizeof(message), NULL);
-		for (i = 0; i < sizeMsg; i++)
-			cout << message[i];
+		if (sizeMsg < sizeof(message)) {
+			cout << message;
+		}
+		else
+			for (i = 0; i < sizeMsg; i++)
+				cout << message[i];
 	} while (sizeMsg == sizeof(message));
-	strcat(message, "\r\n");
-	int sizestr = 0;
+
 	int command = 0;
-	int number = 0;
-	
+
 	do {
 		cout << "1.Авторизация.\n2.Просмотр количества сообщений.\n3.Открыть сообщение.\n4.Выход." << endl;
 		cin >> command;
 
 		switch (command) {
 		case 1:
-			char name[100];
+			ZeroMemory(message, sizeof(message));
+			char name[30];
 			cout << "user ";
 			cin >> name;
+
 			strcpy(message, "user ");
 			strcat(message, name);
 			strcat(message, "\r\n");
 
 			send(SocketK, message, sizeof(message), 0);
-
-			cout << "password: ";
+			ZeroMemory(message, sizeof(message));
+			recv(SocketK, message, sizeof(message), 0);
+			ZeroMemory(message, sizeof(message));
+			cout << "password ";
 			strcpy(message, "pass ");
-			char pass[100];
+			char pass[30];
 			cin >> pass;
 			strcat(message, pass);
 			strcat(message, "\r\n");
-
 			send(SocketK, message, sizeof(message), 0);
 			ZeroMemory(message, sizeof(message));
 			recv(SocketK, message, sizeof(message), 0);
-			cout << message << endl;
+			if (strncmp(message, "+", 1) == 0)
+				cout << message;
+			else {
+				cout << "Неверный логин или пароль.\nМы восстановили соединение" << endl;
+				closesocket(SocketK);
+				SocketK = socket(AF_INET, SOCK_STREAM, NULL);
+				status = connect(SocketK, (sockaddr*)&sock_inK, sizeof(sock_inK));
+				if (status == SOCKET_ERROR) {
+					cerr << "Don't connectK: " << WSAGetLastError() << endl;
+					system("pause");
+					return 3;
+				}
+				do {
+					ZeroMemory(message, sizeof(message));
+					sizeMsg = recv(SocketK, message, sizeof(message), NULL);
+					if (sizeMsg < sizeof(message)) {
+						cout << message;
+					}
+					else
+						for (i = 0; i < sizeMsg; i++)
+							cout << message[i];
+				} while (sizeMsg == sizeof(message));
+				ZeroMemory(message, sizeof(message));
+			}
 			break;
 		case 2:
-			ZeroMemory(message, sizeof(message));
-			strcpy(message, "list");
-			strcat(message, "\r\n");
-			send(SocketK, message, sizeof(message), 0);
-			do {
+			if (strstr(message, "+") != NULL || strstr(message, ".\r\n") != NULL) {
 				ZeroMemory(message, sizeof(message));
-				sizeMsg = recv(SocketK, message, sizeof(message), 0);
-				if (sizeMsg < sizeof(message)) {
-					end = true;
-					cout << message;
-				}
-				else
-					for (int i = 0; i < sizeMsg; i++)
-						cout << message[i];
-
-			} while (!end);
-			end = false;
-			break;
-		case 3:
-			if (strcmp(message, "+OK 0 0\r\n") != 0) {
-				ZeroMemory(message, sizeof(message));
-				char number[10];
-				cout << "Введите номер сообщения: ";
-				cin >> number;
-				strcpy(message, "retr ");
-				strcat(message, number);
+				strcpy(message, "list");
 				strcat(message, "\r\n");
 				send(SocketK, message, sizeof(message), 0);
 				do {
@@ -114,14 +120,47 @@ int main() {
 						end = true;
 						cout << message;
 					}
-					else
+					else {
 						for (int i = 0; i < sizeMsg; i++)
 							cout << message[i];
-
+						if (sizeMsg == sizeof(message) && strstr(message, "\r\n.\r\n")) end = true;
+					}
 				} while (!end);
 				end = false;
 			}
-			else cout << "Сообщений нет" << endl;
+			else
+				cout << "Вы не авторизировались" << endl;
+			break;
+		case 3:
+			if (strstr(message, "+") != NULL || strstr(message, ".") != NULL) {
+				if (strstr(message, "+OK 0") == NULL) {
+					ZeroMemory(message, sizeof(message));
+					char number[10];
+					cout << "Введите номер сообщения: ";
+					cin >> number;
+					strcpy(message, "retr ");
+					strcat(message, number);
+					strcat(message, "\r\n");
+					send(SocketK, message, sizeof(message), 0);
+					do {
+						ZeroMemory(message, sizeof(message));
+						sizeMsg = recv(SocketK, message, sizeof(message), 0);
+						if (sizeMsg < sizeof(message)) {
+							end = true;
+							cout << message;
+						}
+						else {
+							for (int i = 0; i < sizeMsg; i++)
+								cout << message[i];
+							if (sizeMsg == sizeof(message) && strstr(message, "\r\n.\r\n")) end = true;
+						}
+					} while (!end);
+					end = false;
+				}
+				else cout << "Сообщений нет" << endl;
+			}
+			else
+				cout << "Вы не авторизировались" << endl;
 			break;
 		case 4:
 			strcpy(message, "quit\r\n");
